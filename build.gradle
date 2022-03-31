@@ -1,0 +1,102 @@
+/**
+ * buildScript block defines dependencies which are required for the build itself
+ * The buildScript block determines which plugins, task classes, and other classes are available for use
+ * in the rest of your build script. Without a buildScript block, you can use everything that ships with Gradle
+ * out-of-the-box. If you additionally want to use third-party plugins, task classes, or other classes
+ * (in the build script!), you have to specify the corresponding dependencies in the buildScript block.
+ *
+ *
+ */
+
+buildscript {
+	repositories {
+		maven {
+			url "https://plugins.gradle.org/m2/"
+		}
+	}
+
+	/* Here define build script dependencies (a.k.a. plugins for this build script to run tasks and everything needed for the script
+	 Dependencies defined in the buildscript { } block are dependencies to use to build your project.
+	 These dependencies are available to use in your Gradle build file (build.gradle or build.gradle.kts)
+
+	 Dependencies defined in the dependencies { } are for your application code.
+	*/
+	dependencies {
+		classpath "com.palantir.gradle.docker:gradle-docker:0.32.0"
+	}
+}
+
+/*
+only buildscript {}, pluginManagement {} and other plugins {} script blocks are allowed before plugins {} blocks,
+no other statements are allowed
+ */
+plugins {
+	id 'org.springframework.boot' version '2.6.3'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+
+	/*
+	  if you you buildScript Block you can apply this plugin in "apply plugin"
+	  if you don't want to use (buildscript and apply plugin: this is the old way I think)
+	  then you can just put your plugins in this plugins block
+	  however plugins block has some limitations at the moment:
+	  By default the plugin block can only resolve plugins which are either:
+			1) Core Plugins (provides by Gradle themself). These are e.g.: org.gradle.java, org.gradle.groovy,
+			org.gradle.java-gradle-plugin and so on…
+			2) Published to the Gradle Plugin Portal.
+	 */
+	//id "com.palantir.docker" version "0.32.0"
+	//id "com.palantir.docker-run" version "0.32.0"
+
+}
+
+
+apply plugin: "com.palantir.docker"
+apply plugin: "com.palantir.docker-run"
+
+
+group = 'com.springbootdockergradle'
+version = '0.0.1'
+sourceCompatibility = '11'
+
+
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	//implementation 'org.springframework.boot:spring-boot-starter-data-jpa' -- need atleast once class with @Entity
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// -Xlint:deprecation for details
+tasks.withType(JavaCompile) {
+	options.deprecation = true
+
+}
+
+
+archivesBaseName = 'springbootdockergradle'
+
+docker {
+	name "${project.name}:${project.version}"
+	files 'build/libs/springbootdockergradle-0.0.1.jar'
+}
+
+dockerRun {
+	name "${project.name}"
+	image "${project.name}:${project.version}"
+	ports '9090:9090'
+	clean true
+}
+
+tasks.docker.dependsOn(build)
+tasks.dockerRun.dependsOn {tasks.docker}
